@@ -105,6 +105,17 @@ defmodule Ahrs.MathTest do
       assert_in_delta yaw, :math.pi() / 2.0, 1.0e-6
     end
 
+    test "respects units: :degrees option" do
+      half_sqrt_2 = 1.0 / :math.sqrt(2.0)
+      # 90 deg Roll
+      q = %Q{w: half_sqrt_2, x: half_sqrt_2, y: 0.0, z: 0.0}
+      {roll, pitch, yaw} = Math.quaternion_to_euler(q, units: :degrees)
+
+      assert_in_delta roll, 90.0, 1.0e-6
+      assert_in_delta pitch, 0.0, 1.0e-6
+      assert_in_delta yaw, 0.0, 1.0e-6
+    end
+
     test "handles gimbal lock (+90 pitch)" do
       half_sqrt_2 = 1.0 / :math.sqrt(2.0)
       q = %Q{w: half_sqrt_2, x: 0.0, y: half_sqrt_2, z: 0.0}

@@ -24,6 +24,14 @@ defmodule Ahrs.Madgwick do
 
   @default_beta 0.1
 
+  @doc """
+  Updates the Madgwick filter state with new sensor measurements.
+
+  ## Options
+    * `:dt` - Explicit delta time in seconds. If omitted, the library automatically
+      calculates the delta using system monotonic time.
+    * `:beta` - Filter gain (default 0.1).
+  """
   @impl Ahrs.Algorithm
   def update(%__MODULE__{} = state, measurements, opts \\ []) do
     beta = Keyword.get(opts, :beta, @default_beta)

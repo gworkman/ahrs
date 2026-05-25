@@ -6,23 +6,21 @@ designed to be modular and robust, providing strongly-typed sensor containers
 and internal math utilities that handle unit conversions and 3D orientation
 tracking using quaternions.
 
-The library currently focuses on the Madgwick filter, which is a computationally
-efficient gradient descent algorithm used to determine the orientation of a
-device in 3D space by combining accelerometer and gyroscope readings.
+The library currently provides two primary filters:
+
+*   **Madgwick:** A highly efficient gradient descent algorithm that is computationally inexpensive and well-suited for high-speed updates.
+*   **Mahony:** A robust Proportional-Integral (PI) controller filter. It is stateful (tracks integral error) and is often preferred for its stability on low-power hardware.
 
 ## Usage
 
-To use the library, you start by initializing the state for your chosen
-algorithm. Each algorithm provides a struct that tracks the current orientation
-and the timing of the last update.
+To use the library, you start by initializing an AHRS instance using the top-level `Ahrs` module. This provides a unified API regardless of the underlying algorithm you choose.
 
 ```elixir
-alias Ahrs.Madgwick
 alias Ahrs.Accelerometer.Sample, as: Accel
 alias Ahrs.Gyroscope.Sample, as: Gyro
 
-# Initialize the filter state
-state = %Madgwick{}
+# Initialize the filter (use Ahrs.new_madgwick() or Ahrs.new_mahony())
+ahrs = Ahrs.new_madgwick()
 
 # Create sensor samples from your hardware readings
 measurements = %{
@@ -32,25 +30,21 @@ measurements = %{
 
 # Update the filter state.
 # The library automatically calculates the time delta (dt) between calls.
-state = Madgwick.update(state, measurements)
+ahrs = Ahrs.update(ahrs, measurements)
 
-# You can convert the internal quaternion state into human-readable Euler angles.
-{roll, pitch, yaw} = Ahrs.Math.quaternion_to_euler(state.q)
+# You can convert the internal state into human-readable Euler angles.
+# Supports both :radians (default) and :degrees.
+{roll, pitch, yaw} = Ahrs.euler_angles(ahrs, units: :degrees)
 ```
 
 ## Timing and Automatic Delta Tracking
 
-One of the challenges in AHRS systems is accurately measuring the time elapsed
-between sensor updates. This library simplifies this by automatically querying
-the system monotonic clock during the `update/3` call. The state struct stores
-the timestamp of the last update and uses it to calculate the delta time in
-seconds for the next step.
+One of the challenges in AHRS systems is accurately measuring the time elapsed between sensor updates. This library simplifies this by automatically querying the system monotonic clock during the `Ahrs.update/3` call. The internal state stores the timestamp of the last update and uses it to calculate the delta time in seconds for the next step.
 
-If you are processing historical data or want to manage timing yourself, you can
-override this behavior by passing an explicit `:dt` option in seconds.
+If you are processing historical data or want to manage timing yourself, you can override this behavior by passing an explicit `:dt` option in seconds.
 
 ```elixir
-state = Madgwick.update(state, measurements, dt: 0.01)
+ahrs = Ahrs.update(ahrs, measurements, dt: 0.01)
 ```
 
 ## Integration Tips

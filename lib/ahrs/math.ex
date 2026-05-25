@@ -36,38 +36,52 @@ defmodule Ahrs.Math do
   end
 
   @doc """
-  Converts a quaternion orientation into Euler angles (radians).
+  Converts a quaternion orientation into Euler angles.
   Returns a tuple: {roll, pitch, yaw}
   Uses the standard Z-Y-X Tait-Bryan convention.
+
+  ## Options
+    * `:units` - can be `:radians` (default) or `:degrees`.
   """
-  @spec quaternion_to_euler(Q.t()) :: {roll :: float(), pitch :: float(), yaw :: float()}
-  def quaternion_to_euler(%Q{w: w, x: x, y: y, z: z}) do
+  @spec quaternion_to_euler(Q.t(), keyword()) :: {roll :: float(), pitch :: float(), yaw :: float()}
+  def quaternion_to_euler(%Q{w: w, x: x, y: y, z: z}, opts \\ []) do
+    units = Keyword.get(opts, :units, :radians)
+
     # Pitch (y-axis rotation)
     sinp = 2.0 * (w * y - z * x)
 
-    if abs(sinp) >= 0.99999 do
-      # Gimbal lock (Pitch = +/- 90 degrees)
-      pitch = if sinp < 0, do: -:math.pi() / 2, else: :math.pi() / 2
-      # In gimbal lock, yaw and roll are combined. We set yaw to 0.
-      yaw = 0.0
-      roll = normalize_angle(2.0 * :math.atan2(x, w))
-      {roll, pitch, yaw}
-    else
-      # Roll (x-axis rotation)
-      sinr_cosp = 2.0 * (w * x + y * z)
-      cosr_cosp = 1.0 - 2.0 * (x * x + y * y)
-      roll = :math.atan2(sinr_cosp, cosr_cosp)
+    {roll, pitch, yaw} =
+      if abs(sinp) >= 0.99999 do
+        # Gimbal lock (Pitch = +/- 90 degrees)
+        p = if sinp < 0, do: -:math.pi() / 2, else: :math.pi() / 2
+        # In gimbal lock, we override roll and yaw to stay stable
+        r = normalize_angle(2.0 * :math.atan2(x, w))
+        {r, p, 0.0}
+      else
+        # Standard Roll (x-axis rotation)
+        sinr_cosp = 2.0 * (w * x + y * z)
+        cosr_cosp = 1.0 - 2.0 * (x * x + y * y)
+        r = :math.atan2(sinr_cosp, cosr_cosp)
 
-      # Clamp sinp to handle potential float precision issues
-      pitch = :math.asin(max(-1.0, min(1.0, sinp)))
+        # Standard Pitch (y-axis rotation)
+        p = :math.asin(max(-1.0, min(1.0, sinp)))
 
-      # Yaw (z-axis rotation)
-      siny_cosp = 2.0 * (w * z + x * y)
-      cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
-      yaw = :math.atan2(siny_cosp, cosy_cosp)
+        # Standard Yaw (z-axis rotation)
+        siny_cosp = 2.0 * (w * z + x * y)
+        cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
+        y = :math.atan2(siny_cosp, cosy_cosp)
 
-      {roll, pitch, yaw}
-    end
+        {r, p, y}
+      end
+
+    format_output({roll, pitch, yaw}, units)
+  end
+
+  defp format_output({r, p, y}, :radians), do: {r, p, y}
+
+  defp format_output({r, p, y}, :degrees) do
+    factor = 180.0 / :math.pi()
+    {r * factor, p * factor, y * factor}
   end
 
   @doc """
