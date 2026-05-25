@@ -29,6 +29,13 @@ defmodule Ahrs do
   end
 
   @doc """
+  Initializes a new Complementary filter instance.
+  """
+  def new_complementary do
+    %__MODULE__{algorithm: Ahrs.Complementary, state: %Ahrs.Complementary{}}
+  end
+
+  @doc """
   Updates the filter state based on new sensor measurements.
 
   ## Options
@@ -37,6 +44,9 @@ defmodule Ahrs do
     * `:beta` - Filter gain (Madgwick only, default 0.1).
     * `:kp` - Proportional gain (Mahony only, default 2.0).
     * `:ki` - Integral gain (Mahony only, default 0.0).
+    * `:alpha` - Fixed gyroscope weight (Complementary only, default 0.98).
+    * `:time_constant` - Time constant (tau) in seconds (Complementary only). If provided,
+      overrides `:alpha` with a frequency-independent calculation.
     * `:accel_threshold` - Minimum acceleration magnitude (G) to apply correction (default 0.1).
     * `:e_int_limit` - Integral error clamping limit (Mahony only, default 100.0).
   """

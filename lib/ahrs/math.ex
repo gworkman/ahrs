@@ -77,6 +77,27 @@ defmodule Ahrs.Math do
     format_output({roll, pitch, yaw}, units)
   end
 
+  @doc """
+  Converts Euler angles (radians) into a quaternion.
+  Uses the standard Z-Y-X Tait-Bryan convention.
+  """
+  @spec euler_to_quaternion(roll :: float(), pitch :: float(), yaw :: float()) :: Q.t()
+  def euler_to_quaternion(roll, pitch, yaw) do
+    cr = :math.cos(roll * 0.5)
+    sr = :math.sin(roll * 0.5)
+    cp = :math.cos(pitch * 0.5)
+    sp = :math.sin(pitch * 0.5)
+    cy = :math.cos(yaw * 0.5)
+    sy = :math.sin(yaw * 0.5)
+
+    %Q{
+      w: cr * cp * cy + sr * sp * sy,
+      x: sr * cp * cy - cr * sp * sy,
+      y: cr * sp * cy + sr * cp * sy,
+      z: cr * cp * sy - sr * sp * cy
+    }
+  end
+
   defp format_output({r, p, y}, :radians), do: {r, p, y}
 
   defp format_output({r, p, y}, :degrees) do
