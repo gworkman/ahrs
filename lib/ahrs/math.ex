@@ -154,6 +154,27 @@ defmodule Ahrs.Math do
   end
 
   @doc """
+  Rotates a 3D vector by a quaternion.
+  This is mathematically equivalent to `q * v * conjugate(q)` where `v` is a pure quaternion `[0, x, y, z]`.
+  Returns a `{x, y, z}` tuple.
+  """
+  @spec rotate_vector({float(), float(), float()}, Q.t()) :: {float(), float(), float()}
+  def rotate_vector({vx, vy, vz}, %Q{w: qw, x: qx, y: qy, z: qz}) do
+    # Optimized explicit formula for rotating a vector by a quaternion
+    # t = 2 * cross(q.xyz, v)
+    tx = 2.0 * (qy * vz - qz * vy)
+    ty = 2.0 * (qz * vx - qx * vz)
+    tz = 2.0 * (qx * vy - qy * vx)
+
+    # v' = v + q.w * t + cross(q.xyz, t)
+    {
+      vx + qw * tx + qy * tz - qz * ty,
+      vy + qw * ty + qz * tx - qx * tz,
+      vz + qw * tz + qx * ty - qy * tx
+    }
+  end
+
+  @doc """
   Normalizes an angle to the range (-PI, PI].
   """
   def normalize_angle(angle) do
