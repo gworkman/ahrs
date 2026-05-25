@@ -8,6 +8,35 @@ defmodule Ahrs.Math do
   alias Ahrs.Quaternion, as: Q
 
   @gravity 9.80665
+  @gimbal_lock_threshold 0.99999
+
+  @doc """
+  Returns the gravitational constant used for unit conversions (9.80665 m/s²).
+  """
+  def gravity, do: @gravity
+
+  @doc """
+  Calculates the time delta (dt) between updates.
+
+  Returns a `{dt_seconds, current_ts}` tuple.
+  """
+  @spec calculate_dt(integer() | nil, keyword()) :: {float() | nil, integer()}
+  def calculate_dt(last_ts, opts) do
+    current_time = System.monotonic_time(:microsecond)
+
+    case Keyword.get(opts, :dt) do
+      dt when is_number(dt) ->
+        {dt, current_time}
+
+      nil ->
+        if is_nil(last_ts) do
+          {nil, current_time}
+        else
+          dt_seconds = (current_time - last_ts) / 1_000_000.0
+          {dt_seconds, current_time}
+        end
+    end
+  end
 
   @doc """
   Converts a sensor sample to the specified units.
@@ -51,7 +80,7 @@ defmodule Ahrs.Math do
     sinp = 2.0 * (w * y - z * x)
 
     {roll, pitch, yaw} =
-      if abs(sinp) >= 0.99999 do
+      if abs(sinp) >= @gimbal_lock_threshold do
         # Gimbal lock (Pitch = +/- 90 degrees)
         p = if sinp < 0, do: -:math.pi() / 2, else: :math.pi() / 2
         # In gimbal lock, we override roll and yaw to stay stable
@@ -124,8 +153,10 @@ defmodule Ahrs.Math do
     end
   end
 
-  # Normalizes an angle to the range (-PI, PI]
-  defp normalize_angle(angle) do
+  @doc """
+  Normalizes an angle to the range (-PI, PI].
+  """
+  def normalize_angle(angle) do
     two_pi = 2.0 * :math.pi()
     a = :math.fmod(angle + :math.pi(), two_pi)
     if a <= 0, do: a + :math.pi(), else: a - :math.pi()

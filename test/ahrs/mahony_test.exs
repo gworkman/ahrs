@@ -83,17 +83,17 @@ defmodule Ahrs.MahonyTest do
 
     test "respects configurable accel_threshold" do
       initial_state = %Mahony{last_update_at: 0}
-      # Low accel, below default (0.1) but above custom (0.01)
+      # Accel at 0.85G. Deviation is 0.15G.
       measurements = %{
-        accel: %Accel{x: 0.05, y: 0.0, z: 0.0, units: :g},
+        accel: %Accel{x: 0.85, y: 0.0, z: 0.0, units: :g},
         gyro: %Gyro{x: 0.0, y: 0.0, z: 0.0, units: :rad_s}
       }
 
+      # Ignored by default (0.1 threshold) because 0.15 > 0.1
       state_ignored = Mahony.update(initial_state, measurements, dt: 0.1)
-      state_applied = Mahony.update(initial_state, measurements, dt: 0.1, accel_threshold: 0.01)
+      # Applied with custom 0.2 threshold because 0.15 < 0.2
+      state_applied = Mahony.update(initial_state, measurements, dt: 0.1, accel_threshold: 0.2)
 
-      # state_ignored should have exactly identity Q (accel was ignored)
-      # state_applied should have tilted slightly
       assert state_ignored.q == initial_state.q
       assert state_applied.q != initial_state.q
     end

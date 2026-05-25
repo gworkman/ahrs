@@ -28,21 +28,10 @@ defmodule Ahrs.Mahony do
   @default_accel_threshold 0.1
   @default_e_int_limit 100.0
 
-  @doc """
-  Updates the Mahony filter state with new sensor measurements.
-
-  ## Options
-    * `:dt` - Explicit delta time in seconds. If omitted, the library automatically
-      calculates the delta using system monotonic time.
-    * `:kp` - Proportional gain (default 2.0).
-    * `:ki` - Integral gain (default 0.0).
-    * `:accel_threshold` - Minimum acceleration magnitude (G) to apply correction (default 0.1).
-    * `:e_int_limit` - Integral error clamping limit (default 100.0).
-  """
   @impl Ahrs.Algorithm
   def update(%__MODULE__{last_update_at: last_ts} = state, measurements, opts \\ []) do
     # Calculate dt
-    {dt, current_ts} = calculate_dt(last_ts, opts)
+    {dt, current_ts} = Math.calculate_dt(last_ts, opts)
 
     case dt do
       # Initial run or no dt, just record timestamp
@@ -56,23 +45,6 @@ defmodule Ahrs.Mahony do
         # Run math
         {new_q, new_e_int} = run_mahony(state, measurements, dt, opts)
         %__MODULE__{q: new_q, e_int: new_e_int, last_update_at: current_ts}
-    end
-  end
-
-  defp calculate_dt(last_ts, opts) do
-    current_time = System.monotonic_time(:microsecond)
-
-    case Keyword.get(opts, :dt) do
-      dt when is_number(dt) ->
-        {dt, current_time}
-
-      nil ->
-        if is_nil(last_ts) do
-          {nil, current_time}
-        else
-          dt_seconds = (current_time - last_ts) / 1_000_000.0
-          {dt_seconds, current_time}
-        end
     end
   end
 
@@ -102,8 +74,8 @@ defmodule Ahrs.Mahony do
 
     # Correction phase (accel)
     {gx, gy, gz, new_ex_int, new_ey_int, new_ez_int} =
-      if a_norm < threshold or a_norm == 0.0 do
-        # Ignore noisy or zero accel readings
+      if abs(a_norm - 1.0) > threshold do
+        # Ignore noisy accelerometer reading
         {gx, gy, gz, ex_int, ey_int, ez_int}
       else
         ax = accel_g.x / a_norm
@@ -138,7 +110,7 @@ defmodule Ahrs.Mahony do
       end
 
     # Integrate corrected rates
-    {q_dot_w, q_dot_x, q_dot_y, q_dot_z} = calculate_gyro_derivative(q, gx, gy, gz)
+    {q_dot_w, q_dot_x, q_dot_y, q_dot_z} = Q.gyro_derivative(q, gx, gy, gz)
 
     new_q = %Q{
       w: q.w + q_dot_w * dt,
@@ -163,15 +135,6 @@ defmodule Ahrs.Mahony do
       ay * vz - az * vy,
       az * vx - ax * vz,
       ax * vy - ay * vx
-    }
-  end
-
-  defp calculate_gyro_derivative(%Q{w: w, x: x, y: y, z: z}, gx, gy, gz) do
-    {
-      0.5 * (-x * gx - y * gy - z * gz),
-      0.5 * (w * gx + y * gz - z * gy),
-      0.5 * (w * gy - x * gz + z * gx),
-      0.5 * (w * gz + x * gy - y * gx)
     }
   end
 

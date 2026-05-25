@@ -56,6 +56,11 @@ defmodule Ahrs do
   end
 
   @doc """
+  Returns the current orientation quaternion from the filter state.
+  """
+  def quaternion(%__MODULE__{state: %{q: q}}), do: q
+
+  @doc """
   Converts the current filter state into Euler angles.
 
   ## Options

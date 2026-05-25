@@ -76,17 +76,29 @@ defmodule Ahrs.ComplementaryTest do
       assert_in_delta pitch, :math.pi() / 4.0, 0.01
     end
 
-    test "respects accel_threshold" do
+    test "respects accel_threshold (rejects deviation from 1G)" do
       initial_state = %Complementary{q: %Q{w: 1.0, x: 0.0, y: 0.0, z: 0.0}, last_update_at: 0}
       
-      # Acceleration below 0.1G threshold
-      measurements = %{
-        accel: %Accel{x: 0.05, y: 0.0, z: 0.0, units: :g},
+      # Case 1: Moderate deviation (0.85G). Deviation is 0.15G.
+      # Rejected by default 0.1 threshold.
+      measurements_mod = %{
+        accel: %Accel{x: 0.85, y: 0.0, z: 0.0, units: :g},
         gyro: %Gyro{x: 0.0, y: 0.0, z: 0.0, units: :rad_s}
       }
 
-      final_state = Complementary.update(initial_state, measurements, dt: 0.1)
-      assert final_state.q == initial_state.q
+      # Case 2: Extreme deviation (2.0G). Deviation is 1.0G.
+      # Rejected by default 0.1 threshold.
+      measurements_ext = %{
+        accel: %Accel{x: 2.0, y: 0.0, z: 0.0, units: :g},
+        gyro: %Gyro{x: 0.0, y: 0.0, z: 0.0, units: :rad_s}
+      }
+
+      final_mod = Complementary.update(initial_state, measurements_mod, dt: 0.1)
+      final_ext = Complementary.update(initial_state, measurements_ext, dt: 0.1)
+
+      # Both should ignore the accelerometer and keep identity Q
+      assert final_mod.q == initial_state.q
+      assert final_ext.q == initial_state.q
     end
   end
 end

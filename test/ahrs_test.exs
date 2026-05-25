@@ -46,4 +46,11 @@ defmodule AhrsTest do
       assert {0.0, 0.0, 0.0} == Ahrs.euler_angles(ahrs, units: :degrees)
     end
   end
+
+  describe "quaternion/1" do
+    test "returns the current quaternion from state" do
+      ahrs = Ahrs.new_madgwick()
+      assert ahrs.state.q == Ahrs.quaternion(ahrs)
+    end
+  end
 end

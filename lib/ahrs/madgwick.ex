@@ -11,7 +11,6 @@ defmodule Ahrs.Madgwick do
 
   @behaviour Ahrs.Algorithm
 
-  alias Ahrs.Gyroscope.Sample, as: Gyro
   alias Ahrs.Math
   alias Ahrs.Quaternion, as: Q
 
@@ -23,6 +22,7 @@ defmodule Ahrs.Madgwick do
         }
 
   @default_beta 0.1
+  @default_accel_threshold 0.1
 
   @doc """
   Updates the Madgwick filter state with new sensor measurements.
@@ -31,64 +31,49 @@ defmodule Ahrs.Madgwick do
     * `:dt` - Explicit delta time in seconds. If omitted, the library automatically
       calculates the delta using system monotonic time.
     * `:beta` - Filter gain (default 0.1).
+    * `:accel_threshold` - Acceptable deviation from 1G for accelerometer readings (default 0.1).
+      Readings outside [1.0 - threshold, 1.0 + threshold] are ignored.
   """
   @impl Ahrs.Algorithm
-  def update(%__MODULE__{} = state, measurements, opts \\ []) do
+  def update(%__MODULE__{last_update_at: last_ts} = state, measurements, opts \\ []) do
     beta = Keyword.get(opts, :beta, @default_beta)
+    threshold = Keyword.get(opts, :accel_threshold, @default_accel_threshold)
 
     # Calculate dt
-    {dt, last_update_at} = calculate_dt(state, opts)
+    {dt, current_ts} = Math.calculate_dt(last_ts, opts)
 
     case dt do
       # Initial run or no dt provided/calculated, just record timestamp
       nil ->
-        %{state | last_update_at: last_update_at}
+        %__MODULE__{state | last_update_at: current_ts}
 
       d when d == 0.0 ->
         # No time elapsed, but we must update the timestamp
-        %{state | last_update_at: last_update_at}
+        %__MODULE__{state | last_update_at: current_ts}
 
       dt ->
         # Run math
-        new_q = run_madgwick(state.q, measurements, dt, beta)
-        %__MODULE__{q: new_q, last_update_at: last_update_at}
+        new_q = run_madgwick(state.q, measurements, dt, beta, threshold)
+        %__MODULE__{q: new_q, last_update_at: current_ts}
     end
   end
 
-  defp calculate_dt(%__MODULE__{last_update_at: last_ts}, opts) do
-    current_time = System.monotonic_time(:microsecond)
-
-    # Use pattern matching or explicit check for :dt opt to be more idiomatic
-    case Keyword.get(opts, :dt) do
-      dt when is_number(dt) ->
-        {dt, current_time}
-
-      nil ->
-        if is_nil(last_ts) do
-          {nil, current_time}
-        else
-          dt_seconds = (current_time - last_ts) / 1_000_000.0
-          {dt_seconds, current_time}
-        end
-    end
-  end
-
-  defp run_madgwick(q_in, %{accel: accel, gyro: gyro}, dt, beta) do
+  defp run_madgwick(q_in, %{accel: accel, gyro: gyro}, dt, beta, threshold) do
     # Ensure safe math by starting with a normalized quaternion
     q = Q.normalize(q_in)
 
     # 1. Prediction Step: Calculate gyro derivative
     gyro_rad = Math.convert(gyro, :rad_s)
-    {q_dot_w, q_dot_x, q_dot_y, q_dot_z} = calculate_gyro_derivative(q, gyro_rad)
+    {q_dot_w, q_dot_x, q_dot_y, q_dot_z} = Q.gyro_derivative(q, gyro_rad.x, gyro_rad.y, gyro_rad.z)
 
     # 2. Correction Step: Apply gradient descent feedback
-    # We ignore the accelerometer if the magnitude is too low (near-free-fall noise)
+    # We ignore the accelerometer if the magnitude deviates significantly from 1G
     accel_g = Math.convert(accel, :g)
     a_norm = :math.sqrt(accel_g.x * accel_g.x + accel_g.y * accel_g.y + accel_g.z * accel_g.z)
 
     {q_dot_w, q_dot_x, q_dot_y, q_dot_z} =
-      if a_norm < 0.1 do
-        # Ignore noisy accelerometer reading in near-free-fall
+      if abs(a_norm - 1.0) > threshold do
+        # Ignore noisy accelerometer reading
         {q_dot_w, q_dot_x, q_dot_y, q_dot_z}
       else
         ax = accel_g.x / a_norm
@@ -114,15 +99,6 @@ defmodule Ahrs.Madgwick do
     }
 
     Q.normalize(new_q)
-  end
-
-  defp calculate_gyro_derivative(%Q{w: w, x: x, y: y, z: z}, %Gyro{x: gx, y: gy, z: gz}) do
-    {
-      0.5 * (-x * gx - y * gy - z * gz),
-      0.5 * (w * gx + y * gz - z * gy),
-      0.5 * (w * gy - x * gz + z * gx),
-      0.5 * (w * gz + x * gy - y * gx)
-    }
   end
 
   defp compute_gradient_descent(q, ax, ay, az) do

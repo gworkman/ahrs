@@ -35,7 +35,7 @@ defmodule Ahrs.Complementary do
   @impl Ahrs.Algorithm
   def update(%__MODULE__{last_update_at: last_ts} = state, measurements, opts \\ []) do
     # Calculate dt
-    {dt, current_ts} = calculate_dt(last_ts, opts)
+    {dt, current_ts} = Math.calculate_dt(last_ts, opts)
 
     case dt do
       nil -> %__MODULE__{state | last_update_at: current_ts}
@@ -46,29 +46,12 @@ defmodule Ahrs.Complementary do
     end
   end
 
-  defp calculate_dt(last_ts, opts) do
-    current_time = System.monotonic_time(:microsecond)
-
-    case Keyword.get(opts, :dt) do
-      dt when is_number(dt) ->
-        {dt, current_time}
-
-      nil ->
-        if is_nil(last_ts) do
-          {nil, current_time}
-        else
-          dt_seconds = (current_time - last_ts) / 1_000_000.0
-          {dt_seconds, current_time}
-        end
-    end
-  end
-
   defp run_complementary(q_in, %{accel: accel, gyro: gyro}, dt, opts) do
     q = Q.normalize(q_in)
 
     # 1. Prediction: Integrate gyroscope (High Pass)
     gyro_rad = Math.convert(gyro, :rad_s)
-    {q_dot_w, q_dot_x, q_dot_y, q_dot_z} = calculate_gyro_derivative(q, gyro_rad)
+    {q_dot_w, q_dot_x, q_dot_y, q_dot_z} = Q.gyro_derivative(q, gyro_rad.x, gyro_rad.y, gyro_rad.z)
 
     q_gyro = %Q{
       w: q.w + q_dot_w * dt,
@@ -86,8 +69,8 @@ defmodule Ahrs.Complementary do
     accel_g = Math.convert(accel, :g)
     a_norm = :math.sqrt(accel_g.x * accel_g.x + accel_g.y * accel_g.y + accel_g.z * accel_g.z)
 
-    if a_norm < threshold or a_norm == 0.0 do
-      # Ignore noisy or zero accel readings, return gyro prediction
+    if abs(a_norm - 1.0) > threshold do
+      # Ignore noisy accelerometer reading
       q_gyro
     else
       # Extract current yaw from integrated state to prevent "Yaw Leakage"
@@ -117,17 +100,12 @@ defmodule Ahrs.Complementary do
 
   defp calculate_alpha(dt, opts) do
     case opts[:time_constant] do
-      tau when is_number(tau) -> tau / (tau + dt)
-      _ -> Keyword.get(opts, :alpha, @default_alpha)
-    end
-  end
+      tau when is_number(tau) ->
+        denom = tau + dt
+        if denom == 0.0, do: 1.0, else: tau / denom
 
-  defp calculate_gyro_derivative(%Q{w: w, x: x, y: y, z: z}, %{x: gx, y: gy, z: gz}) do
-    {
-      0.5 * (-x * gx - y * gy - z * gz),
-      0.5 * (w * gx + y * gz - z * gy),
-      0.5 * (w * gy - x * gz + z * gx),
-      0.5 * (w * gz + x * gy - y * gx)
-    }
+      _ ->
+        Keyword.get(opts, :alpha, @default_alpha)
+    end
   end
 end
