@@ -9,20 +9,21 @@ defmodule Ahrs.MadgwickTest do
   describe "update/3" do
     test "initial run sets last_update_at and does not change quaternion" do
       state = %Madgwick{}
+
       measurements = %{
         accel: %Accel{x: 0.0, y: 0.0, z: 1.0, units: :g},
         gyro: %Gyro{x: 0.0, y: 0.0, z: 0.0, units: :rad_s}
       }
 
       new_state = Madgwick.update(state, measurements)
-      
+
       assert new_state.q == state.q
       assert is_integer(new_state.last_update_at)
     end
 
     test "converges to stable orientation with :dt override" do
       initial_state = %Madgwick{}
-      
+
       # Measurement: Gravity pulling on negative X (90 deg pitch up)
       measurements = %{
         accel: %Accel{x: -1.0, y: 0.0, z: 0.0, units: :g},

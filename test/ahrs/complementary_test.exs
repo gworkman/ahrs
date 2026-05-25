@@ -9,6 +9,7 @@ defmodule Ahrs.ComplementaryTest do
   describe "update/3" do
     test "initial run sets last_update_at" do
       state = %Complementary{}
+
       measurements = %{
         accel: %Accel{x: 0.0, y: 0.0, z: 1.0, units: :g},
         gyro: %Gyro{x: 0.0, y: 0.0, z: 0.0, units: :rad_s}
@@ -20,7 +21,7 @@ defmodule Ahrs.ComplementaryTest do
 
     test "converges toward accelerometer tilt" do
       initial_state = %Complementary{q: %Q{w: 1.0, x: 0.0, y: 0.0, z: 0.0}, last_update_at: 0}
-      
+
       measurements = %{
         accel: %Accel{x: -1.0, y: 0.0, z: 0.0, units: :g},
         gyro: %Gyro{x: 0.0, y: 0.0, z: 0.0, units: :rad_s}
@@ -60,6 +61,7 @@ defmodule Ahrs.ComplementaryTest do
 
     test "calculates alpha from time_constant" do
       initial_state = %Complementary{q: %Q{w: 1.0, x: 0.0, y: 0.0, z: 0.0}, last_update_at: 0}
+
       measurements = %{
         accel: %Accel{x: 0.0, y: 0.0, z: 1.0, units: :g},
         gyro: %Gyro{x: 0.0, y: 0.0, z: 0.0, units: :rad_s}
@@ -68,8 +70,10 @@ defmodule Ahrs.ComplementaryTest do
       # If tc = 1.0 and dt = 1.0, alpha = 1.0 / (1.0 + 1.0) = 0.5
       # We verify this by feeding a 90 deg tilt and seeing it move halfway in one step
       measurements_tilt = %{measurements | accel: %Accel{x: -1.0, y: 0.0, z: 0.0, units: :g}}
-      
-      final_state = Complementary.update(initial_state, measurements_tilt, dt: 1.0, time_constant: 1.0)
+
+      final_state =
+        Complementary.update(initial_state, measurements_tilt, dt: 1.0, time_constant: 1.0)
+
       {_roll, pitch, _yaw} = Math.quaternion_to_euler(final_state.q)
 
       # 45 degrees is halfway to 90
@@ -78,7 +82,7 @@ defmodule Ahrs.ComplementaryTest do
 
     test "respects accel_threshold (rejects deviation from 1G)" do
       initial_state = %Complementary{q: %Q{w: 1.0, x: 0.0, y: 0.0, z: 0.0}, last_update_at: 0}
-      
+
       # Case 1: Moderate deviation (0.85G). Deviation is 0.15G.
       # Rejected by default 0.1 threshold.
       measurements_mod = %{

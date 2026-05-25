@@ -20,6 +20,7 @@ defmodule AhrsTest do
   describe "update/3 delegation" do
     test "delegates update to underlying algorithm" do
       ahrs = Ahrs.new_madgwick()
+
       measurements = %{
         accel: %Accel{x: 0.0, y: 0.0, z: 1.0, units: :g},
         gyro: %Gyro{x: 0.0, y: 0.0, z: 0.0, units: :rad_s}

@@ -72,7 +72,8 @@ defmodule Ahrs.Math do
   ## Options
     * `:units` - can be `:radians` (default) or `:degrees`.
   """
-  @spec quaternion_to_euler(Q.t(), keyword()) :: {roll :: float(), pitch :: float(), yaw :: float()}
+  @spec quaternion_to_euler(Q.t(), keyword()) ::
+          {roll :: float(), pitch :: float(), yaw :: float()}
   def quaternion_to_euler(%Q{w: w, x: x, y: y, z: z}, opts \\ []) do
     units = Keyword.get(opts, :units, :radians)
 

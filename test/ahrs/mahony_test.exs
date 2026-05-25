@@ -9,13 +9,14 @@ defmodule Ahrs.MahonyTest do
   describe "update/3" do
     test "initial run sets last_update_at and preserves state" do
       state = %Mahony{}
+
       measurements = %{
         accel: %Accel{x: 0.0, y: 0.0, z: 1.0, units: :g},
         gyro: %Gyro{x: 0.0, y: 0.0, z: 0.0, units: :rad_s}
       }
 
       new_state = Mahony.update(state, measurements)
-      
+
       assert new_state.q == state.q
       assert new_state.e_int == {0.0, 0.0, 0.0}
       assert is_integer(new_state.last_update_at)
@@ -23,7 +24,7 @@ defmodule Ahrs.MahonyTest do
 
     test "converges to stable orientation" do
       initial_state = %Mahony{}
-      
+
       # Measurement: 90 deg pitch up
       measurements = %{
         accel: %Accel{x: -1.0, y: 0.0, z: 0.0, units: :g},
@@ -62,7 +63,7 @@ defmodule Ahrs.MahonyTest do
 
     test "accumulates integral error when ki > 0" do
       initial_state = %Mahony{}
-      
+
       # Constant error: device is flat, but accel says it's tilted
       measurements = %{
         accel: %Accel{x: 1.0, y: 0.0, z: 0.0, units: :g},
@@ -100,13 +101,16 @@ defmodule Ahrs.MahonyTest do
 
     test "clamps integral error (anti-windup)" do
       initial_state = %Mahony{last_update_at: 0}
+
       measurements = %{
         accel: %Accel{x: 1.0, y: 0.0, z: 0.0, units: :g},
         gyro: %Gyro{x: 0.0, y: 0.0, z: 0.0, units: :rad_s}
       }
 
       # Run with very low limit and high ki
-      final_state = Mahony.update(initial_state, measurements, dt: 1.0, ki: 100.0, e_int_limit: 5.0)
+      final_state =
+        Mahony.update(initial_state, measurements, dt: 1.0, ki: 100.0, e_int_limit: 5.0)
+
       {ex, ey, ez} = final_state.e_int
 
       assert abs(ex) <= 5.0

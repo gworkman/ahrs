@@ -64,7 +64,9 @@ defmodule Ahrs.Madgwick do
 
     # 1. Prediction Step: Calculate gyro derivative
     gyro_rad = Math.convert(gyro, :rad_s)
-    {q_dot_w, q_dot_x, q_dot_y, q_dot_z} = Q.gyro_derivative(q, gyro_rad.x, gyro_rad.y, gyro_rad.z)
+
+    {q_dot_w, q_dot_x, q_dot_y, q_dot_z} =
+      Q.gyro_derivative(q, gyro_rad.x, gyro_rad.y, gyro_rad.z)
 
     # 2. Correction Step: Apply gradient descent feedback
     # We ignore the accelerometer if the magnitude deviates significantly from 1G
@@ -119,8 +121,15 @@ defmodule Ahrs.Madgwick do
 
     # Objective function f and Jacobian J
     s_w = t4qw * qyqy + t2qy * ax + t4qw * qxqx - t2qx * ay
-    s_x = t4qx * qzqz - t2qz * ax + 4.0 * qwqw * q.x - t2qw * ay - t4qx + t8qx * qxqx + t8qx * qyqy + t4qx * az
-    s_y = 4.0 * qwqw * q.y + t2qw * ax + t4qy * qzqz - t2qz * ay - t4qy + t8qy * qxqx + t8qy * qyqy + t4qy * az
+
+    s_x =
+      t4qx * qzqz - t2qz * ax + 4.0 * qwqw * q.x - t2qw * ay - t4qx + t8qx * qxqx + t8qx * qyqy +
+        t4qx * az
+
+    s_y =
+      4.0 * qwqw * q.y + t2qw * ax + t4qy * qzqz - t2qz * ay - t4qy + t8qy * qxqx + t8qy * qyqy +
+        t4qy * az
+
     s_z = 4.0 * qxqx * q.z - t2qx * ax + 4.0 * qyqy * q.z - t2qy * ay
 
     # Normalize step magnitude

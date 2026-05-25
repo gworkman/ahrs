@@ -38,8 +38,12 @@ defmodule Ahrs.Complementary do
     {dt, current_ts} = Math.calculate_dt(last_ts, opts)
 
     case dt do
-      nil -> %__MODULE__{state | last_update_at: current_ts}
-      d when d == 0.0 -> %__MODULE__{state | last_update_at: current_ts}
+      nil ->
+        %__MODULE__{state | last_update_at: current_ts}
+
+      d when d == 0.0 ->
+        %__MODULE__{state | last_update_at: current_ts}
+
       dt ->
         new_q = run_complementary(state.q, measurements, dt, opts)
         %__MODULE__{q: new_q, last_update_at: current_ts}
@@ -51,15 +55,18 @@ defmodule Ahrs.Complementary do
 
     # 1. Prediction: Integrate gyroscope (High Pass)
     gyro_rad = Math.convert(gyro, :rad_s)
-    {q_dot_w, q_dot_x, q_dot_y, q_dot_z} = Q.gyro_derivative(q, gyro_rad.x, gyro_rad.y, gyro_rad.z)
 
-    q_gyro = %Q{
-      w: q.w + q_dot_w * dt,
-      x: q.x + q_dot_x * dt,
-      y: q.y + q_dot_y * dt,
-      z: q.z + q_dot_z * dt
-    }
-    |> Q.normalize()
+    {q_dot_w, q_dot_x, q_dot_y, q_dot_z} =
+      Q.gyro_derivative(q, gyro_rad.x, gyro_rad.y, gyro_rad.z)
+
+    q_gyro =
+      %Q{
+        w: q.w + q_dot_w * dt,
+        x: q.x + q_dot_x * dt,
+        y: q.y + q_dot_y * dt,
+        z: q.z + q_dot_z * dt
+      }
+      |> Q.normalize()
 
     # Determine weighting (alpha)
     alpha = calculate_alpha(dt, opts)
@@ -84,8 +91,13 @@ defmodule Ahrs.Complementary do
       one_minus_alpha = 1.0 - alpha
 
       # Short-path interpolation check
-      dot = q_gyro.w * q_accel.w + q_gyro.x * q_accel.x + q_gyro.y * q_accel.y + q_gyro.z * q_accel.z
-      q_accel = if dot < 0.0, do: %Q{w: -q_accel.w, x: -q_accel.x, y: -q_accel.y, z: -q_accel.z}, else: q_accel
+      dot =
+        q_gyro.w * q_accel.w + q_gyro.x * q_accel.x + q_gyro.y * q_accel.y + q_gyro.z * q_accel.z
+
+      q_accel =
+        if dot < 0.0,
+          do: %Q{w: -q_accel.w, x: -q_accel.x, y: -q_accel.y, z: -q_accel.z},
+          else: q_accel
 
       res = %Q{
         w: alpha * q_gyro.w + one_minus_alpha * q_accel.w,

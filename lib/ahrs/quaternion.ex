@@ -49,7 +49,7 @@ defmodule Ahrs.Quaternion do
 
   @doc """
   Calculates the rate of change (derivative) of a quaternion based on angular velocity (rad/s).
-  
+
   Returns a 4-tuple of `{dw, dx, dy, dz}`.
   """
   @spec gyro_derivative(t(), float(), float(), float()) :: {float(), float(), float(), float()}
