@@ -70,6 +70,29 @@ maximum allowable deviation from earth gravity. Any reading outside the
 $[0.9G, 1.1G]$ range is ignored, preventing orientation jumps during high linear
 acceleration or vibration.
 
+## Fast Initialization
+
+By default, filters are initialized at the origin (identity quaternion). It can
+take several seconds for a filter to converge to the true orientation using only
+its default tuning parameters.
+
+To eliminate this delay, you can initialize the filter with your first
+accelerometer reading. This performs an immediate trigonometric tilt calculation
+to seed the starting orientation.
+
+```elixir
+# Take your first reading
+initial_accel = %Accel{x: 0.5, y: 0.0, z: 0.866, units: :g}
+
+# Initialize with the reading
+ahrs = Ahrs.new_madgwick(initial_accel: initial_accel)
+
+# The filter starts aligned with gravity!
+```
+
+Alternatively, you can provide an explicit starting orientation using the
+`:initial_q` option.
+
 ## Examples & Simulation
 
 The project includes a 3D visual simulator to help you verify and tune your

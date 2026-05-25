@@ -18,10 +18,15 @@ defmodule Simulator.Live do
       :timer.send_interval(@tick_ms, self(), :tick)
     end
 
+    # Initial orientation alignment
+    true_q = %Q{}
+    {ax, ay, az} = Math.rotate_vector({0, 0, 1.0}, Q.conjugate(true_q))
+    initial_accel = %Accel{x: ax, y: ay, z: az, units: :g}
+
     socket =
       socket
-      |> assign(:true_q, %Q{})
-      |> assign(:ahrs, Ahrs.new_madgwick())
+      |> assign(:true_q, true_q)
+      |> assign(:ahrs, Ahrs.new_madgwick(initial_accel: initial_accel))
       |> assign(:angular_velocity, {0.0, 0.0, 0.0})
       |> assign(:rotation_speed, 1.5)
       |> assign(:gyro_noise, 0.02)
@@ -61,6 +66,7 @@ defmodule Simulator.Live do
     }
 
     {ax, ay, az} = Math.rotate_vector({0, 0, 1.0}, Q.conjugate(true_q))
+
     accel_reading = %Accel{
       x: ax + random_noise(accel_noise),
       y: ay + random_noise(accel_noise),
@@ -73,7 +79,7 @@ defmodule Simulator.Live do
 
     # 4. Broadcast orientations to JS
     filter_q = Ahrs.quaternion(ahrs)
-    
+
     true_euler = Math.quaternion_to_euler(true_q, units: :degrees)
     filter_euler = Ahrs.euler_angles(ahrs, units: :degrees)
 
@@ -102,11 +108,18 @@ defmodule Simulator.Live do
   end
 
   def handle_event("change_filter", %{"filter" => type}, socket) do
-    ahrs = case type do
-      "madgwick" -> Ahrs.new_madgwick()
-      "mahony" -> Ahrs.new_mahony()
-      "complementary" -> Ahrs.new_complementary()
-    end
+    # Calculate current expected accel to bootstrap the new filter
+    true_q = socket.assigns.true_q
+    {ax, ay, az} = Math.rotate_vector({0, 0, 1.0}, Q.conjugate(true_q))
+    initial_accel = %Accel{x: ax, y: ay, z: az, units: :g}
+
+    ahrs =
+      case type do
+        "madgwick" -> Ahrs.new_madgwick(initial_accel: initial_accel)
+        "mahony" -> Ahrs.new_mahony(initial_accel: initial_accel)
+        "complementary" -> Ahrs.new_complementary(initial_accel: initial_accel)
+      end
+
     {:noreply, assign(socket, ahrs: ahrs, filter_type: type)}
   end
 
@@ -132,9 +145,18 @@ defmodule Simulator.Live do
   defp random_noise(level), do: (:rand.uniform() - 0.5) * level
 
   defp calculate_velocity(keys, speed) do
-    gx = (if MapSet.member?(keys, "a"), do: -speed, else: 0.0) + (if MapSet.member?(keys, "d"), do: speed, else: 0.0)
-    gy = (if MapSet.member?(keys, "w"), do: speed, else: 0.0) + (if MapSet.member?(keys, "s"), do: -speed, else: 0.0)
-    gz = (if MapSet.member?(keys, "q"), do: -speed, else: 0.0) + (if MapSet.member?(keys, "e"), do: speed, else: 0.0)
+    gx =
+      if(MapSet.member?(keys, "a"), do: -speed, else: 0.0) +
+        if MapSet.member?(keys, "d"), do: speed, else: 0.0
+
+    gy =
+      if(MapSet.member?(keys, "w"), do: speed, else: 0.0) +
+        if MapSet.member?(keys, "s"), do: -speed, else: 0.0
+
+    gz =
+      if(MapSet.member?(keys, "q"), do: -speed, else: 0.0) +
+        if MapSet.member?(keys, "e"), do: speed, else: 0.0
+
     {gx, gy, gz}
   end
 
@@ -309,6 +331,7 @@ defmodule Simulator.Live do
 
   def euler_display(assigns) do
     assigns = assign_new(assigns, :color, fn -> "text-white" end)
+
     ~H"""
     <div class="flex flex-row gap-6 items-center">
       <div class="flex flex-col items-center">

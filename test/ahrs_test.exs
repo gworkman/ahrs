@@ -10,10 +10,25 @@ defmodule AhrsTest do
       assert %Ahrs.Madgwick{} = ahrs.state
     end
 
-    test "new_mahony/0 initializes correctly" do
-      ahrs = Ahrs.new_mahony()
-      assert ahrs.algorithm == Ahrs.Mahony
-      assert %Ahrs.Mahony{} = ahrs.state
+    test "new_complementary/0 initializes correctly" do
+      ahrs = Ahrs.new_complementary()
+      assert ahrs.algorithm == Ahrs.Complementary
+      assert %Ahrs.Complementary{} = ahrs.state
+    end
+
+    test "initializes with explicit initial_q" do
+      initial_q = %Ahrs.Quaternion{w: 0.707, x: 0.707, y: 0.0, z: 0.0}
+      ahrs = Ahrs.new_madgwick(initial_q: initial_q)
+      assert ahrs.state.q == initial_q
+    end
+
+    test "initializes with initial_accel (Fast Initialization)" do
+      # 90 deg pitch up
+      accel = %Ahrs.Accelerometer.Sample{x: -1.0, y: 0.0, z: 0.0, units: :g}
+      ahrs = Ahrs.new_madgwick(initial_accel: accel)
+
+      {_r, pitch, _y} = Ahrs.euler_angles(ahrs)
+      assert_in_delta pitch, :math.pi() / 2.0, 1.0e-6
     end
   end
 
