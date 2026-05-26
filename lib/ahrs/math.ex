@@ -129,29 +129,43 @@ defmodule Ahrs.Math do
   end
 
   defp format_output({r, p, y}, :radians), do: {r, p, y}
+  defp format_output({r, p}, :radians), do: {r, p}
 
   defp format_output({r, p, y}, :degrees) do
     factor = 180.0 / :math.pi()
     {r * factor, p * factor, y * factor}
   end
 
+  defp format_output({r, p}, :degrees) do
+    factor = 180.0 / :math.pi()
+    {r * factor, p * factor}
+  end
+
   @doc """
-  Calculates pitch and roll (radians) directly from an accelerometer sample using trigonometry.
+  Calculates pitch and roll directly from an accelerometer sample using trigonometry.
   Note: This calculation is susceptible to linear acceleration and cannot determine yaw.
   Returns a tuple: {roll, pitch}
-  """
-  @spec accel_to_tilt(Accel.t()) :: {roll :: float(), pitch :: float()}
-  def accel_to_tilt(%Accel{x: ax, y: ay, z: az}) do
-    case :math.sqrt(ax * ax + ay * ay + az * az) do
-      norm when norm == 0.0 ->
-        # Free-fall or zero reading: Orientation is unknown, return zeroed angles
-        {0.0, 0.0}
 
-      _norm ->
-        roll = :math.atan2(ay, az)
-        pitch = :math.atan2(-ax, :math.sqrt(ay * ay + az * az))
-        {roll, pitch}
-    end
+  ## Options
+    * `:units` - can be `:radians` (default) or `:degrees`.
+  """
+  @spec accel_to_tilt(Accel.t(), keyword()) :: {roll :: float(), pitch :: float()}
+  def accel_to_tilt(%Accel{x: ax, y: ay, z: az}, opts \\ []) do
+    units = Keyword.get(opts, :units, :radians)
+
+    {roll, pitch} =
+      case :math.sqrt(ax * ax + ay * ay + az * az) do
+        norm when norm == 0.0 ->
+          # Free-fall or zero reading: Orientation is unknown, return zeroed angles
+          {0.0, 0.0}
+
+        _norm ->
+          r = :math.atan2(ay, az)
+          p = :math.atan2(-ax, :math.sqrt(ay * ay + az * az))
+          {r, p}
+      end
+
+    format_output({roll, pitch}, units)
   end
 
   @doc """

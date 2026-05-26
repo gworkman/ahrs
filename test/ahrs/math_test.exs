@@ -167,6 +167,15 @@ defmodule Ahrs.MathTest do
       assert roll == 0.0
       assert pitch == 0.0
     end
+
+    test "respects units: :degrees option" do
+      # 90 deg Roll right
+      sample = %Accel{x: 0.0, y: 1.0, z: 0.0, units: :g}
+      {roll, pitch} = Math.accel_to_tilt(sample, units: :degrees)
+
+      assert_in_delta roll, 90.0, 1.0e-6
+      assert pitch == 0.0
+    end
   end
 
   describe "complex orientations" do
